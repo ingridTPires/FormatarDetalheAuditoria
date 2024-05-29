@@ -9,27 +9,35 @@ namespace FormatarDetalheAuditoria
     {
         static async Task Main(string[] args)
         {
-            var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
-
-            using var conn = new SqlConnection(config.GetConnectionString("Default"));
-
-            var auditoriaDetalhes = await conn.QueryAsync<AuditoriaDetalhe>("SELECT [IdAuditoria], [PropertyName], [OldValue], [NewValue] FROM [tbAuditoriaDetalhe]");
-
-            foreach (var auditoria in auditoriaDetalhes.GroupBy(x => x.IdAuditoria))
+            try
             {
-                var result = auditoria.ToDictionary(x => x.PropertyName, x => new { de = x.OldValue, para = x.NewValue });
+                var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
 
-                var resultJson = JsonSerializer.Serialize(result);
+                using var conn = new SqlConnection(config.GetConnectionString("Default"));
 
-                await conn.ExecuteAsync(@"UPDATE [tbAuditoria]
+                var auditoriaDetalhes = await conn.QueryAsync<AuditoriaDetalhe>("SELECT [IdAuditoria], [PropertyName], [OldValue], [NewValue] FROM [tbAuditoriaDetalhe]");
+                var auditorias = auditoriaDetalhes.GroupBy(x => x.IdAuditoria);
+
+                foreach (var auditoria in auditorias)
+                {
+                    var result = auditoria.ToDictionary(x => x.PropertyName, x => new { de = x.OldValue, para = x.NewValue });
+
+                    var resultJson = JsonSerializer.Serialize(result);
+
+                    await conn.ExecuteAsync(@"UPDATE [tbAuditoria]
                                         SET [Detalhes] = @Detalhes 
                                         WHERE [Id] = @IdAuditoria;", new { Detalhes = resultJson, IdAuditoria = auditoria.Key });
 
-                Console.WriteLine($"Auditoria {auditoria.Key} atualizada.");
-            }
+                    Console.WriteLine($"Auditoria {auditoria.Key} atualizada.");
+                }
 
-            Console.WriteLine("\nAtualização Finalizada!");
-            Console.ReadLine();
+                Console.WriteLine("\nAtualização Finalizada!");
+                Console.ReadKey();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Ocorreu um erro: {ex.Message}");
+            }
         }
     }
 }
