@@ -2,11 +2,16 @@
 using Microsoft.Extensions.Configuration;
 using System.Data.SqlClient;
 using System.Text.Json;
+using Z.Dapper.Plus;
 
 namespace FormatarDetalheAuditoria
 {
     internal class Program
     {
+        private const int FETCH = 100;
+        private const string SELECT_AUDITORIAS = @"SELECT [Id] FROM [tbAuditoria] ORDER BY [Id]
+                                                    OFFSET @Offset ROWS FETCH NEXT @Fetch ROWS ONLY;";
+        private const string SELECT_DETALHES = "SELECT [PropertyName], [OldValue], [NewValue] FROM [tbAuditoriaDetalhe] WHERE [IdAuditoria] = @IdAuditoria;";
         static async Task Main(string[] args)
         {
             try
@@ -15,21 +20,29 @@ namespace FormatarDetalheAuditoria
 
                 using var conn = new SqlConnection(config.GetConnectionString("Default"));
 
-                var auditoriaDetalhes = await conn.QueryAsync<AuditoriaDetalhe>("SELECT [IdAuditoria], [PropertyName], [OldValue], [NewValue] FROM [tbAuditoriaDetalhe]");
-                var auditorias = auditoriaDetalhes.GroupBy(x => x.IdAuditoria);
+                var offset = 0;
+                var auditorias = new List<tbAuditoria>();
 
-                foreach (var auditoria in auditorias)
+                do
                 {
-                    var result = auditoria.ToDictionary(x => x.PropertyName, x => new { de = x.OldValue, para = x.NewValue });
+                    auditorias = (await conn.QueryAsync<tbAuditoria>(SELECT_AUDITORIAS, new { Offset = offset, Fetch = FETCH })).ToList();
 
-                    var resultJson = JsonSerializer.Serialize(result);
+                    foreach (var auditoria in auditorias)
+                    {
+                        var detalhes = await conn.QueryAsync<tbAuditoriaDetalhe>(SELECT_DETALHES, new { IdAuditoria = auditoria.Id });
 
-                    await conn.ExecuteAsync(@"UPDATE [tbAuditoria]
-                                        SET [Detalhes] = @Detalhes 
-                                        WHERE [Id] = @IdAuditoria;", new { Detalhes = resultJson, IdAuditoria = auditoria.Key });
+                        if (!detalhes.Any())
+                            continue;
 
-                    Console.WriteLine($"Auditoria {auditoria.Key} atualizada.");
-                }
+                        var result = detalhes.ToDictionary(x => x.PropertyName, x => new { de = x.OldValue, para = x.NewValue });
+                        auditoria.Detalhes = JsonSerializer.Serialize(result);
+                    }
+
+                    await conn.BulkUpdateAsync(auditorias);
+
+                    Console.WriteLine($"Atualização de ${offset} a ${FETCH} realizada.");
+                    offset += FETCH;
+                } while (auditorias.Any());
 
                 Console.WriteLine("\nAtualização Finalizada!");
                 Console.ReadKey();
