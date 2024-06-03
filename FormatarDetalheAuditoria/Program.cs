@@ -34,7 +34,7 @@ namespace FormatarDetalheAuditoria
                         if (!detalhes.Any())
                             continue;
 
-                        var result = detalhes.ToDictionary(x => x.PropertyName, x => new { de = x.OldValue, para = x.NewValue });
+                        var result = detalhes.ToDictionary(x => x.PropertyName, x => new { De = x.OldValue, Para = x.NewValue });
                         auditoria.Detalhes = JsonSerializer.Serialize(result);
                     }
 
