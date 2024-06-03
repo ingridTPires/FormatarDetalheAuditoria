@@ -40,7 +40,7 @@ namespace FormatarDetalheAuditoria
 
                     await conn.BulkUpdateAsync(auditorias);
 
-                    Console.WriteLine($"Atualização de ${offset} a ${FETCH} realizada.");
+                    Console.WriteLine($"Atualização de {offset} a {FETCH} realizada.");
                     offset += FETCH;
                 } while (auditorias.Any());
 
