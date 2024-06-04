@@ -9,9 +9,9 @@ namespace FormatarDetalheAuditoria
     internal class Program
     {
         private const int FETCH = 100;
-        private const string SELECT_AUDITORIAS = @"SELECT [Id] FROM [tbAuditoria] ORDER BY [Id]
+        private const string SQL_AUDITORIA = @"SELECT [Id] FROM [tbAuditoria] ORDER BY [Id]
                                                     OFFSET @Offset ROWS FETCH NEXT @Fetch ROWS ONLY;";
-        private const string SELECT_DETALHES = "SELECT [PropertyName], [OldValue], [NewValue] FROM [tbAuditoriaDetalhe] WHERE [IdAuditoria] = @IdAuditoria;";
+        private const string SQL_DETALHES = "SELECT [PropertyName], [OldValue], [NewValue] FROM [tbAuditoriaDetalhe] WHERE [IdAuditoria] = @IdAuditoria;";
         static async Task Main(string[] args)
         {
             try
@@ -25,14 +25,14 @@ namespace FormatarDetalheAuditoria
 
                 do
                 {
-                    var auditorias = (await conn.QueryAsync<tbAuditoria>(SELECT_AUDITORIAS, new { Offset = offset, Fetch = FETCH })).ToList();
+                    var auditorias = (await conn.QueryAsync<tbAuditoria>(SQL_AUDITORIA, new { Offset = offset, Fetch = FETCH })).ToList();
                     count = auditorias.Count;
 
                     if (count > 0)
                     {
                         foreach (var auditoria in auditorias)
                         {
-                            var detalhes = await conn.QueryAsync<tbAuditoriaDetalhe>(SELECT_DETALHES, new { IdAuditoria = auditoria.Id });
+                            var detalhes = await conn.QueryAsync<tbAuditoriaDetalhe>(SQL_DETALHES, new { IdAuditoria = auditoria.Id });
 
                             if (!detalhes.Any())
                                 continue;
