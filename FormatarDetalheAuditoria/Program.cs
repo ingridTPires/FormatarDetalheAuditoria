@@ -16,7 +16,7 @@ namespace FormatarDetalheAuditoria
         {
             try
             {
-                var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+                var config = BuildConfiguration();
 
                 using var conn = new SqlConnection(config.GetConnectionString("Default"));
 
@@ -51,6 +51,15 @@ namespace FormatarDetalheAuditoria
             {
                 Console.WriteLine($"Ocorreu um erro: {ex.Message}");
             }
+        }
+        static IConfiguration BuildConfiguration()
+        {
+            var environment = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+
+            return new ConfigurationBuilder()
+                            .AddJsonFile("appsettings.json", false)
+                            .AddJsonFile($"appsettings.{environment}.json", true)
+                            .Build();
         }
     }
 }
