@@ -21,28 +21,33 @@ namespace FormatarDetalheAuditoria
                 using var conn = new SqlConnection(config.GetConnectionString("Default"));
 
                 var offset = 0;
-                var auditorias = new List<tbAuditoria>();
+                var count = 0;
 
                 do
                 {
-                    auditorias = (await conn.QueryAsync<tbAuditoria>(SELECT_AUDITORIAS, new { Offset = offset, Fetch = FETCH })).ToList();
+                    var auditorias = (await conn.QueryAsync<tbAuditoria>(SELECT_AUDITORIAS, new { Offset = offset, Fetch = FETCH })).ToList();
+                    count = auditorias.Count;
 
-                    foreach (var auditoria in auditorias)
+                    if (count > 0)
                     {
-                        var detalhes = await conn.QueryAsync<tbAuditoriaDetalhe>(SELECT_DETALHES, new { IdAuditoria = auditoria.Id });
+                        foreach (var auditoria in auditorias)
+                        {
+                            var detalhes = await conn.QueryAsync<tbAuditoriaDetalhe>(SELECT_DETALHES, new { IdAuditoria = auditoria.Id });
 
-                        if (!detalhes.Any())
-                            continue;
+                            if (!detalhes.Any())
+                                continue;
 
-                        var result = detalhes.ToDictionary(x => x.PropertyName, x => new { De = x.OldValue, Para = x.NewValue });
-                        auditoria.Detalhes = JsonSerializer.Serialize(result);
+                            var result = detalhes.ToDictionary(x => x.PropertyName, x => new { De = x.OldValue, Para = x.NewValue });
+                            auditoria.Detalhes = JsonSerializer.Serialize(result);
+                        }
+
+                        await conn.BulkUpdateAsync(auditorias);
+
+                        Console.WriteLine($"Atualização de {offset} a {FETCH} realizada.");
+                        offset += FETCH;
                     }
 
-                    await conn.BulkUpdateAsync(auditorias);
-
-                    Console.WriteLine($"Atualização de {offset} a {FETCH} realizada.");
-                    offset += FETCH;
-                } while (auditorias.Any());
+                } while (count > 0);
 
                 Console.WriteLine("\nAtualização Finalizada!");
                 Console.ReadKey();
